@@ -15,13 +15,7 @@ def home():
 async def webhook(request: Request):
     data = await request.json()
 
-    try:
-        # Extrai a mensagem do JSON da Z-API
-        @app.post("/webhook")
-async def webhook(request: Request):
-    data = await request.json()
-    
-    print(f"JSON recebido: {data}")  # log para debug
+    print(f"JSON recebido: {data}")
 
     try:
         # Ignora mensagens enviadas por mim
@@ -30,7 +24,7 @@ async def webhook(request: Request):
 
         # Extrai a mensagem
         message = data.get("message", {})
-        
+
         mensagem = (
             message.get("conversation") or
             message.get("extendedTextMessage", {}).get("text") or
@@ -50,14 +44,3 @@ async def webhook(request: Request):
     except Exception as e:
         print(f"Erro: {e}")
         return {"status": "erro", "detalhe": str(e)}
-        remetente = data["body"]["from"]
-
-        print(f"Mensagem recebida de {remetente}: {mensagem}")
-
-        # Processa a mensagem
-        processar_mensagem(mensagem)
-
-        return {"status": "ok"}
-
-    except KeyError:
-        return {"status": "erro", "detalhe": "formato de mensagem inválido"}
