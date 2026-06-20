@@ -14,8 +14,16 @@ SCOPES = [
 
 SHEET_ID = "195QolX1z0dk_DheWrzL6JPmK5Pt37hYBRueSDAlVB-Q"
 
+import os
+import json
+
 def conectar():
-    creds = Credentials.from_service_account_file("credenciais.json", scopes=SCOPES)
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS")
+    if creds_json:
+        creds_info = json.loads(creds_json)
+        creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+    else:
+        creds = Credentials.from_service_account_file("credenciais.json", scopes=SCOPES)
     cliente = gspread.authorize(creds)
     return cliente.open_by_key(SHEET_ID)
 
