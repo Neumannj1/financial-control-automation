@@ -18,21 +18,23 @@ async def webhook(request: Request):
     print(f"JSON recebido: {data}")
 
     try:
-        if data.get("key", {}).get("fromMe"):
+        inner = data.get("data", {})
+
+        if inner.get("key", {}).get("fromMe"):
             return {"status": "ignored"}
 
         mensagem = (
-            data.get("msgContent", {}).get("conversation") or
-            data.get("msgContent", {}).get("extendedTextMessage", {}).get("text") or
-            data.get("message", {}).get("conversation") or
-            data.get("message", {}).get("extendedTextMessage", {}).get("text") or
+            inner.get("msgContent", {}).get("conversation") or
+            inner.get("msgContent", {}).get("extendedTextMessage", {}).get("text") or
+            inner.get("message", {}).get("conversation") or
+            inner.get("message", {}).get("extendedTextMessage", {}).get("text") or
             ""
         )
 
         if not mensagem:
             return {"status": "sem mensagem de texto"}
 
-        remetente = data.get("key", {}).get("remoteJid", "")
+        remetente = inner.get("key", {}).get("remoteJid", "")
         print(f"Mensagem recebida de {remetente}: {mensagem}")
 
         processar_mensagem(mensagem)
