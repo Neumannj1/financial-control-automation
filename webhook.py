@@ -18,16 +18,14 @@ async def webhook(request: Request):
     print(f"JSON recebido: {data}")
 
     try:
-        # Ignora mensagens enviadas por mim
         if data.get("key", {}).get("fromMe"):
             return {"status": "ignored"}
 
-        # Extrai a mensagem
-        message = data.get("message", {})
-
         mensagem = (
-            message.get("conversation") or
-            message.get("extendedTextMessage", {}).get("text") or
+            data.get("msgContent", {}).get("conversation") or
+            data.get("msgContent", {}).get("extendedTextMessage", {}).get("text") or
+            data.get("message", {}).get("conversation") or
+            data.get("message", {}).get("extendedTextMessage", {}).get("text") or
             ""
         )
 
