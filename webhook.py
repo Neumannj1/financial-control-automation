@@ -41,9 +41,12 @@ async def webhook(request: Request):
         resultado = processar_mensagem(mensagem)
 
         if resultado and "erro" not in resultado:
-            enviar_mensagem(remetente, f"✅ Conta cadastrada: {resultado.get('empresa')} - {resultado.get('descricao')} - R${resultado.get('valor')} - Venc: {resultado.get('vencimento')}")
+            if resultado.get("confirmado"):
+                enviar_mensagem(remetente, f"✅ Pagamento confirmado: {resultado.get('empresa')} - {resultado.get('imposto')}")
+            else:
+                enviar_mensagem(remetente, f"✅ Conta cadastrada: {resultado.get('empresa')} - {resultado.get('descricao')} - R${resultado.get('valor')} - Venc: {resultado.get('vencimento')}")
         elif resultado and "erro" in resultado:
-            enviar_mensagem(remetente, f"❌ Erro: {resultado.get('erro')}")
+            enviar_mensagem(remetente, f"❌ {resultado.get('erro')}")
 
         return {"status": "ok"}
 
