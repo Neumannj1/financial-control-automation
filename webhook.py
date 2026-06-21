@@ -10,6 +10,7 @@ import schedule
 import threading
 import time
 from datetime import datetime
+from lembretes import verificar_contas, resumo_semanal
 
 app = FastAPI()
 
@@ -26,6 +27,7 @@ def rodar_lembrete():
 
 def iniciar_agendador():
     schedule.every().day.at("08:30").do(rodar_lembrete)
+    schedule.every().monday.at("07:00").do(resumo_semanal)
     while True:
         schedule.run_pending()
         time.sleep(30)

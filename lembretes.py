@@ -58,9 +58,32 @@ def verificar_contas():
     if not contas_hoje and not contas_proximas:
         mensagem += "✅ Nenhuma conta vencendo nos próximos dias."
 
-    # enviar_mensagem(NUMERO_FINANCEIRO, mensagem)
-    print(f"MENSAGEM QUE SERIA ENVIADA:\n{mensagem}")
+    enviar_mensagem(NUMERO_FINANCEIRO, mensagem)
+    # print(f"MENSAGEM QUE SERIA ENVIADA:\n{mensagem}")
     print(f"✅ Lembrete enviado: {datetime.now()}")
+
+def resumo_semanal():
+    planilha = conectar()
+    aba = planilha.worksheet("Financeiro")
+    registros = aba.get_all_records()
+
+    pagas = [r for r in registros if r.get("Status") == "Pago"]
+    pendentes = [r for r in registros if r.get("Status") == "Pendente"]
+
+    total_pago = sum(float(r.get("Valor", 0)) for r in pagas)
+    total_pendente = sum(float(r.get("Valor", 0)) for r in pendentes)
+
+    mensagem = "📊 *Resumo Semanal Financeiro*\n\n"
+    mensagem += f"✅ Contas pagas: {len(pagas)} - Total: R${total_pago:.2f}\n"
+    mensagem += f"⏳ Contas pendentes: {len(pendentes)} - Total: R${total_pendente:.2f}\n\n"
+
+    if pendentes:
+        mensagem += "📋 *Pendentes:*\n"
+        for c in pendentes:
+            mensagem += f"• {c['Empresa']} - {c['Imposto']} - R${c['Valor']} - Venc: {c['Vencimento']}\n"
+
+    enviar_mensagem(NUMERO_FINANCEIRO, mensagem)
+    print(f"✅ Resumo semanal enviado: {datetime.now()}")    
 
 if __name__ == "__main__":
     verificar_contas()
