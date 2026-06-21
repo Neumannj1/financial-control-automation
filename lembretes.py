@@ -24,21 +24,63 @@ def verificar_contas():
     aba = planilha.worksheet("Financeiro")
     registros = aba.get_all_records()
 
-    hoje = datetime.today().strftime("%d/%m")
+    hoje = datetime.today()
+    hoje_str = hoje.strftime("%d/%m")
     proximos = get_dias_uteis(3)
-    datas_alerta = [hoje] + proximos
+    datas_alerta = [hoje_str] + proximos
 
     contas_hoje = []
     contas_proximas = []
+    contas_atrasadas = []
 
     for linha in registros:
         if linha.get("Status") != "Pendente":
             continue
         vencimento = str(linha.get("Vencimento", "")).strip()
-        if vencimento == hoje:
+        if not vencimento:
+            continue
+
+        # Verifica atraso
+        try:
+            dia, mes = vencimento.split("/")
+            data_venc = datetime(hoje.year, int(mes), int(dia))
+            if data_venc.date() < hoje.date():
+                contas_atrasadas.append(linha)
+                continue
+        except:
+            pass
+
+        if vencimento == hoje_str:
             contas_hoje.append(linha)
         elif vencimento in proximos:
             contas_proximas.append(linha)
+
+    # Monta mensagem
+    mensagem = "📋 *Relatório Financeiro Diário*\n\n"
+
+    if contas_atrasadas:
+        mensagem += "🚨 *CONTAS EM ATRASO:*\n"
+        for c in contas_atrasadas:
+            mensagem += f"• {c['Empresa']} - {c['Imposto']} - R${c['Valor']} - Venceu: {c['Vencimento']}\n"
+        mensagem += "\n"
+
+    if contas_hoje:
+        mensagem += "🔴 *Vencendo HOJE:*\n"
+        for c in contas_hoje:
+            mensagem += f"• {c['Empresa']} - {c['Imposto']} - R${c['Valor']}\n"
+        mensagem += "\n"
+
+    if contas_proximas:
+        mensagem += "🟡 *Vencendo nos próximos 3 dias:*\n"
+        for c in contas_proximas:
+            mensagem += f"• {c['Empresa']} - {c['Imposto']} - R${c['Valor']} - Venc: {c['Vencimento']}\n"
+        mensagem += "\n"
+
+    if not contas_hoje and not contas_proximas and not contas_atrasadas:
+        mensagem += "✅ Nenhuma conta vencendo nos próximos dias."
+
+    enviar_mensagem(NUMERO_FINANCEIRO, mensagem)
+    print(f"✅ Lembrete enviado: {datetime.now()}")
 
     # Monta mensagem
     mensagem = "📋 *Relatório Financeiro Diário*\n\n"

@@ -5,9 +5,9 @@
 # Apelidos das empresas (virão do Sheets futuramente)
 # Por enquanto fixo aqui para testar
 EMPRESAS = [
-    "QUANTUM", "VELOZ", "SABOR", "HORIZONTE",
-    "NEXO", "METAL", "BEMESTAR", "ESTRELA",
-    "LETRA", "SENTINELA", "ESTILO", "AGUIA"
+    "BRIGHTLED", "FILIAL", "MAGNAPR", "MAGNASP",
+    "ROL", "PSP", "TRIPORT", "LIDERLIK",
+    "PORTER", "OBV", "SANGA"
 ]
 
 # Tipos de transação
