@@ -12,12 +12,17 @@ def processar_mensagem(mensagem):
 
     if "erro" in resultado:
         print(f"❌ Erro: {resultado['erro']}")
-        return
+        return resultado
 
     if resultado.get("acao") == "confirmar":
-        confirmar_pagamento(resultado["empresa"], resultado["imposto"])
+        sucesso = confirmar_pagamento(resultado["empresa"], resultado["imposto"])
+        if sucesso:
+            return {"confirmado": True, "empresa": resultado["empresa"], "imposto": resultado["imposto"]}
+        else:
+            return {"erro": f"Conta não encontrada ou já paga: {resultado['empresa']} - {resultado['imposto']}"}
     else:
         salvar_conta(resultado)
+        return resultado
 
 
 # ==========================================
@@ -26,9 +31,9 @@ def processar_mensagem(mensagem):
 
 if __name__ == "__main__":
     mensagens_teste = [
-        "adicionar QUANTUM ICMS 30/06 500",   # cadastra
-        "paguei QUANTUM ICMS",                 # confirma pagamento
-        "paguei QUANTUM ICMS",                 # tenta confirmar de novo (já pago)
+        "adicionar QUANTUM ICMS 30/06 500",
+        "paguei QUANTUM ICMS",
+        "paguei QUANTUM ICMS",
     ]
 
     for msg in mensagens_teste:

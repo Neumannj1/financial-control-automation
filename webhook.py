@@ -4,6 +4,7 @@
 
 from fastapi import FastAPI, Request
 from main import processar_mensagem
+from whatsapp import enviar_mensagem
 
 app = FastAPI()
 
@@ -37,7 +38,12 @@ async def webhook(request: Request):
         remetente = inner.get("key", {}).get("remoteJid", "")
         print(f"Mensagem recebida de {remetente}: {mensagem}")
 
-        processar_mensagem(mensagem)
+        resultado = processar_mensagem(mensagem)
+
+        if resultado and "erro" not in resultado:
+            enviar_mensagem(remetente, f"✅ Conta cadastrada: {resultado.get('empresa')} - {resultado.get('descricao')} - R${resultado.get('valor')} - Venc: {resultado.get('vencimento')}")
+        elif resultado and "erro" in resultado:
+            enviar_mensagem(remetente, f"❌ Erro: {resultado.get('erro')}")
 
         return {"status": "ok"}
 
