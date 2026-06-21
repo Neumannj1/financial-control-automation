@@ -41,10 +41,10 @@ def parsear_mensagem(mensagem):
     acao = partes[0].lower()
 
     if acao in PALAVRAS_CONFIRMACAO and len(partes) < 3:
-        return {"erro": "Mensagem incompleta. Ex: paguei QUANTUM ICMS"}
+        return {"erro": "Formato inválido. Para confirmar pagamento use: paguei EMPRESA IMPOSTO\nEx: paguei QUANTUM ICMS"}
 
     if acao not in PALAVRAS_CONFIRMACAO and len(partes) < 4:
-        return {"erro": "Mensagem incompleta. Ex: adicionar QUANTUM ICMS 20/06 850"}
+        return {"erro": "Formato inválido. Para cadastrar use: adicionar EMPRESA IMPOSTO DATA VALOR\nEx: adicionar QUANTUM ICMS 30/06 850"}
 
     # Identifica tipo
     if acao in PALAVRAS_CONFIRMACAO:
