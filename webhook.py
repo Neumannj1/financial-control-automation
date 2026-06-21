@@ -1,12 +1,42 @@
 # ==========================================
-# WEBHOOK.PY — Servidor FastAPI
+# WEBHOOK.PY — Servidor FastAPI + Agendador
 # ==========================================
 
 from fastapi import FastAPI, Request
 from main import processar_mensagem
 from whatsapp import enviar_mensagem
+from lembretes import verificar_contas
+import schedule
+import threading
+import time
+from datetime import datetime
 
 app = FastAPI()
+
+# ==========================================
+# AGENDADOR DE LEMBRETES
+# ==========================================
+
+def rodar_lembrete():
+    agora = datetime.now()
+    # Roda só de segunda a sexta (0=segunda, 4=sexta)
+    if agora.weekday() < 5:
+        print(f"⏰ Rodando lembrete: {agora}")
+        verificar_contas()
+
+def iniciar_agendador():
+    schedule.every().day.at("08:30").do(rodar_lembrete)
+    while True:
+        schedule.run_pending()
+        time.sleep(30)
+
+# Inicia agendador em thread separada
+thread = threading.Thread(target=iniciar_agendador, daemon=True)
+thread.start()
+
+# ==========================================
+# ROTAS
+# ==========================================
 
 @app.get("/")
 def home():
