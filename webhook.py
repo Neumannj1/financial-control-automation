@@ -13,12 +13,10 @@ from datetime import datetime
 
 app = FastAPI()
 
-# Números autorizados a usar o sistema
 NUMEROS_AUTORIZADOS = [
-    "554199849507",  # financeiro
+    "5541998495077",  # financeiro
 ]
-
-# ==========================================
+========================================
 # AGENDADOR
 # ==========================================
 
