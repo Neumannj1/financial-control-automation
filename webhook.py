@@ -1,28 +1,30 @@
 # ==========================================
-# WEBHOOK.PY — Servidor FastAPI + Agendador
+# WEBHOOK.PY — Servidor FastAPI
 # ==========================================
 
 from fastapi import FastAPI, Request
 from main import processar_mensagem
 from whatsapp import enviar_mensagem
-from lembretes import verificar_contas
+from lembretes import verificar_contas, resumo_semanal
 import schedule
 import threading
 import time
 from datetime import datetime
-from lembretes import verificar_contas, resumo_semanal
 
 app = FastAPI()
 
+# Números autorizados a usar o sistema
+NUMEROS_AUTORIZADOS = [
+    "554199849507",  # financeiro
+]
+
 # ==========================================
-# AGENDADOR DE LEMBRETES
+# AGENDADOR
 # ==========================================
 
 def rodar_lembrete():
-    agora = datetime.now()
-    # Roda só de segunda a sexta (0=segunda, 4=sexta)
-    if agora.weekday() < 5:
-        print(f"⏰ Rodando lembrete: {agora}")
+    if datetime.now().weekday() < 5:
+        print(f"Rodando lembrete: {datetime.now()}")
         verificar_contas()
 
 def iniciar_agendador():
@@ -32,7 +34,6 @@ def iniciar_agendador():
         schedule.run_pending()
         time.sleep(30)
 
-# Inicia agendador em thread separada
 thread = threading.Thread(target=iniciar_agendador, daemon=True)
 thread.start()
 
@@ -68,17 +69,24 @@ async def webhook(request: Request):
             return {"status": "sem mensagem de texto"}
 
         remetente = inner.get("key", {}).get("remoteJid", "")
+
+        # Filtra apenas números autorizados
+        numero_limpo = remetente.replace("@s.whatsapp.net", "").replace("@lid", "")
+        if not any(auth in numero_limpo for auth in NUMEROS_AUTORIZADOS):
+            print(f"Ignorado: {remetente}")
+            return {"status": "ignorado"}
+
         print(f"Mensagem recebida de {remetente}: {mensagem}")
 
         resultado = processar_mensagem(mensagem)
 
         if resultado and "erro" not in resultado:
             if resultado.get("confirmado"):
-                enviar_mensagem(remetente, f"✅ Pagamento confirmado: {resultado.get('empresa')} - {resultado.get('imposto')}")
+                enviar_mensagem(remetente, f"Pagamento confirmado: {resultado.get('empresa')} - {resultado.get('imposto')}")
             else:
-                enviar_mensagem(remetente, f"✅ Conta cadastrada: {resultado.get('empresa')} - {resultado.get('descricao')} - R${resultado.get('valor')} - Venc: {resultado.get('vencimento')}")
+                enviar_mensagem(remetente, f"Conta cadastrada: {resultado.get('empresa')} - {resultado.get('descricao')} - R${resultado.get('valor')} - Venc: {resultado.get('vencimento')}")
         elif resultado and "erro" in resultado:
-            enviar_mensagem(remetente, f"❌ {resultado.get('erro')}")
+            enviar_mensagem(remetente, f"{resultado.get('erro')}")
 
         return {"status": "ok"}
 

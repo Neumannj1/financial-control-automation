@@ -6,7 +6,7 @@ from sheets import conectar
 from whatsapp import enviar_mensagem
 from datetime import datetime, timedelta
 
-NUMERO_FINANCEIRO = "554199849507"  # número da sua amiga
+NUMERO_FINANCEIRO = "554199849507"  # financeiro recebe lembretes
 
 def get_dias_uteis(n):
     dias = []
