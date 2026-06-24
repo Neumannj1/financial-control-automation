@@ -15,6 +15,7 @@ app = FastAPI()
 
 NUMEROS_AUTORIZADOS = [
     "5541998495077",  # financeiro
+    "5541998866873",  # Jean - testes
 ]
 # AGENDADOR
 # ==========================================
