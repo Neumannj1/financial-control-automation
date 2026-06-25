@@ -6,7 +6,10 @@ from sheets import conectar
 from whatsapp import enviar_mensagem
 from datetime import datetime, timedelta
 
-NUMERO_FINANCEIRO = "5541998495077"  # financeiro recebe lembretes
+NUMEROS_DESTINO = [
+    "5541998495077",   # financeiro (Andreia)
+    "5541998866873",   # Jean (testes)
+]
 
 def get_dias_uteis(n):
     dias = []
@@ -15,9 +18,15 @@ def get_dias_uteis(n):
     while len(dias) < n:
         contador += 1
         dia = hoje + timedelta(days=contador)
-        if dia.weekday() < 5:  # 0-4 = segunda a sexta
+        if dia.weekday() < 5:
             dias.append(dia.strftime("%d/%m"))
     return dias
+
+def formatar_valor(valor):
+    try:
+        return f"R$ {float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except:
+        return f"R$ {valor}"
 
 def verificar_contas():
     planilha = conectar()
@@ -27,7 +36,6 @@ def verificar_contas():
     hoje = datetime.today()
     hoje_str = hoje.strftime("%d/%m")
     proximos = get_dias_uteis(3)
-    datas_alerta = [hoje_str] + proximos
 
     contas_hoje = []
     contas_proximas = []
@@ -40,7 +48,6 @@ def verificar_contas():
         if not vencimento:
             continue
 
-        # Verifica atraso
         try:
             dia, mes = vencimento.split("/")
             data_venc = datetime(hoje.year, int(mes), int(dia))
@@ -55,53 +62,41 @@ def verificar_contas():
         elif vencimento in proximos:
             contas_proximas.append(linha)
 
+    # Calcula total em aberto
+    todas = contas_atrasadas + contas_hoje + contas_proximas
+    total_aberto = sum(float(c.get("Valor", 0)) for c in todas)
+
     # Monta mensagem
-    mensagem = "📋 *Relatório Financeiro Diário*\n\n"
+    mensagem = f"📊 *Controle Fiscal · {hoje_str}*\n"
+    mensagem += "━━━━━━━━━━━━━━━━━━━━\n\n"
 
     if contas_atrasadas:
-        mensagem += "🚨 *CONTAS EM ATRASO:*\n"
+        mensagem += "⚠️ *EM ATRASO*\n"
         for c in contas_atrasadas:
-            mensagem += f"• {c['Empresa']} - {c['Imposto']} - R${c['Valor']} - Venceu: {c['Vencimento']}\n"
+            mensagem += f"• {c['Empresa']} · {c['Imposto']} · {formatar_valor(c['Valor'])} _(venceu {c['Vencimento']})_\n"
         mensagem += "\n"
 
     if contas_hoje:
-        mensagem += "🔴 *Vencendo HOJE:*\n"
+        mensagem += "🔴 *VENCE HOJE*\n"
         for c in contas_hoje:
-            mensagem += f"• {c['Empresa']} - {c['Imposto']} - R${c['Valor']}\n"
+            mensagem += f"• {c['Empresa']} · {c['Imposto']} · {formatar_valor(c['Valor'])}\n"
         mensagem += "\n"
 
     if contas_proximas:
-        mensagem += "🟡 *Vencendo nos próximos 3 dias:*\n"
+        mensagem += "🟡 *PRÓXIMOS 3 DIAS*\n"
         for c in contas_proximas:
-            mensagem += f"• {c['Empresa']} - {c['Imposto']} - R${c['Valor']} - Venc: {c['Vencimento']}\n"
+            mensagem += f"• {c['Empresa']} · {c['Imposto']} · {c['Vencimento']} · {formatar_valor(c['Valor'])}\n"
         mensagem += "\n"
 
     if not contas_hoje and not contas_proximas and not contas_atrasadas:
-        mensagem += "✅ Nenhuma conta vencendo nos próximos dias."
+        mensagem += "✅ Nenhuma conta vencendo nos próximos dias.\n\n"
 
-    enviar_mensagem(NUMERO_FINANCEIRO, mensagem)
-    print(f"✅ Lembrete enviado: {datetime.now()}")
+    mensagem += "━━━━━━━━━━━━━━━━━━━━\n"
+    mensagem += f"💰 *Total em aberto: {formatar_valor(total_aberto)}*"
 
-    # Monta mensagem
-    mensagem = "📋 *Relatório Financeiro Diário*\n\n"
+    for numero in NUMEROS_DESTINO:
+        enviar_mensagem(numero, mensagem)
 
-    if contas_hoje:
-        mensagem += "🔴 *Vencendo HOJE:*\n"
-        for c in contas_hoje:
-            mensagem += f"• {c['Empresa']} - {c['Imposto']} - R${c['Valor']}\n"
-        mensagem += "\n"
-
-    if contas_proximas:
-        mensagem += "🟡 *Vencendo nos próximos 3 dias:*\n"
-        for c in contas_proximas:
-            mensagem += f"• {c['Empresa']} - {c['Imposto']} - R${c['Valor']} - Venc: {c['Vencimento']}\n"
-        mensagem += "\n"
-
-    if not contas_hoje and not contas_proximas:
-        mensagem += "✅ Nenhuma conta vencendo nos próximos dias."
-
-    enviar_mensagem(NUMERO_FINANCEIRO, mensagem)
-    # print(f"MENSAGEM QUE SERIA ENVIADA:\n{mensagem}")
     print(f"✅ Lembrete enviado: {datetime.now()}")
 
 def resumo_semanal():
@@ -109,23 +104,30 @@ def resumo_semanal():
     aba = planilha.worksheet("Financeiro")
     registros = aba.get_all_records()
 
+    hoje_str = datetime.today().strftime("%d/%m")
     pagas = [r for r in registros if r.get("Status") == "Pago"]
     pendentes = [r for r in registros if r.get("Status") == "Pendente"]
 
     total_pago = sum(float(r.get("Valor", 0)) for r in pagas)
     total_pendente = sum(float(r.get("Valor", 0)) for r in pendentes)
 
-    mensagem = "📊 *Resumo Semanal Financeiro*\n\n"
-    mensagem += f"✅ Contas pagas: {len(pagas)} - Total: R${total_pago:.2f}\n"
-    mensagem += f"⏳ Contas pendentes: {len(pendentes)} - Total: R${total_pendente:.2f}\n\n"
+    mensagem = f"📊 *Resumo Semanal · {hoje_str}*\n"
+    mensagem += "━━━━━━━━━━━━━━━━━━━━\n\n"
+    mensagem += f"✅ *Pagas:* {len(pagas)} contas · {formatar_valor(total_pago)}\n"
+    mensagem += f"⏳ *Pendentes:* {len(pendentes)} contas · {formatar_valor(total_pendente)}\n\n"
 
     if pendentes:
-        mensagem += "📋 *Pendentes:*\n"
+        mensagem += "📋 *Contas pendentes:*\n"
         for c in pendentes:
-            mensagem += f"• {c['Empresa']} - {c['Imposto']} - R${c['Valor']} - Venc: {c['Vencimento']}\n"
+            mensagem += f"• {c['Empresa']} · {c['Imposto']} · {c['Vencimento']} · {formatar_valor(c['Valor'])}\n"
 
-    enviar_mensagem(NUMERO_FINANCEIRO, mensagem)
-    print(f"✅ Resumo semanal enviado: {datetime.now()}")    
+    mensagem += "\n━━━━━━━━━━━━━━━━━━━━\n"
+    mensagem += f"💰 *Total em aberto: {formatar_valor(total_pendente)}*"
+
+    for numero in NUMEROS_DESTINO:
+        enviar_mensagem(numero, mensagem)
+
+    print(f"✅ Resumo semanal enviado: {datetime.now()}")
 
 if __name__ == "__main__":
     verificar_contas()
