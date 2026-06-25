@@ -15,6 +15,7 @@ app = FastAPI()
 
 NUMEROS_AUTORIZADOS = [
     "5541998495077",   # financeiro
+    "76845722657008",  # financeiro LID
     "5541998866873",   # Jean - testes
     "215199504154859", # Jean - LID
 ]
@@ -27,8 +28,8 @@ def rodar_lembrete():
         verificar_contas()
 
 def iniciar_agendador():
-    schedule.every().day.at("08:30").do(rodar_lembrete)
-    schedule.every().monday.at("07:00").do(resumo_semanal)
+    schedule.every().day.at("11:00").do(rodar_lembrete)
+    schedule.every().monday.at("10:00").do(resumo_semanal)
     while True:
         schedule.run_pending()
         time.sleep(30)
