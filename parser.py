@@ -5,9 +5,9 @@
 # ==========================================
 
 EMPRESAS = [
-    "BRIGHTLED", "FILIAL", "MAGNAPR", "MAGNASP",
+    "MATRIZ", "PARAUAPEBAS", "MAGNAPR", "MAGNASP",
     "ROL", "PSP", "TRIPORT", "LIDERLIK",
-    "PORTER", "OBV", "SANGA"
+    "PORTER", "OBV", "SANGA", "FILIAL"
 ]
 
 # ── Ações: sinônimos aceitos ──────────────────────────────
