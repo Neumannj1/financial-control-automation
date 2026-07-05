@@ -1,8 +1,28 @@
 # ==========================================
-# PARSER FINANCEIRO v4
+# PARSER FINANCEIRO v5
 # - Sinônimos de "adicionar"
 # - Lista completa de impostos brasileiros
+# - Empresas com variações de escrita (espaços, maiúsculas)
 # ==========================================
+
+# ── Empresas: mapeia variações de escrita para o apelido oficial ──
+EMPRESAS_MAP = {
+    "MATRIZ": "MATRIZ",
+    "BRIGHTLED": "MATRIZ",
+    "PARAUAPEBAS": "PARAUAPEBAS",
+    "MAGNAPR": "MAGNAPR",
+    "MAGNA PR": "MAGNAPR",
+    "MAGNASP": "MAGNASP",
+    "MAGNA SP": "MAGNASP",
+    "ROL": "ROL",
+    "PSP": "PSP",
+    "TRIPORT": "TRIPORT",
+    "LIDERLIK": "LIDERLIK",
+    "PORTER": "PORTER",
+    "OBV": "OBV",
+    "SANGA": "SANGA",
+    "FILIAL": "FILIAL",
+}
 
 EMPRESAS = [
     "MATRIZ", "PARAUAPEBAS", "MAGNAPR", "MAGNASP",
@@ -36,7 +56,6 @@ PALAVRAS_RELATORIO = ["relatorio", "relatório", "relatorios", "vencimentos", "v
 PALAVRAS_RESUMO    = ["resumo", "resumao", "resumão", "geral", "situacao", "situação"]
 
 # ── Impostos e tributos brasileiros ───────────────────────
-# Federais, estaduais, municipais + novos da Reforma Tributária
 IMPOSTOS_VALIDOS = [
     # Federais
     "IRPJ", "IRPF", "IR", "CSLL", "PIS", "PASEP", "COFINS",
@@ -75,13 +94,13 @@ MENSAGEM_AJUDA = (
     "Não entendi sua mensagem. Veja os comandos:\n\n"
     "➕ *Cadastrar conta:*\n"
     "`adicionar EMPRESA IMPOSTO DD/MM VALOR`\n"
-    "_Ex: adicionar BRIGHTLED ICMS 30/06 850_\n\n"
+    "_Ex: adicionar MATRIZ ICMS 30/06 850_\n\n"
     "✅ *Confirmar pagamento:*\n"
     "`paguei EMPRESA IMPOSTO`\n"
-    "_Ex: paguei BRIGHTLED ICMS_\n\n"
+    "_Ex: paguei MATRIZ ICMS_\n\n"
     "✅ *Confirmar com valor pago:*\n"
     "`paguei EMPRESA IMPOSTO VALOR`\n"
-    "_Ex: paguei BRIGHTLED ICMS 850_\n\n"
+    "_Ex: paguei MATRIZ ICMS 850_\n\n"
     "📊 *Consultar:*\n"
     "`relatorio` — contas vencendo e atrasadas\n"
     "`resumo` — visão geral (pagas e pendentes)\n\n"
@@ -99,9 +118,17 @@ def identificar_categoria(descricao):
     return "Outros"
 
 def identificar_empresa(partes):
+    # Tenta nome composto de 2 palavras primeiro - ex: "Magna Pr"
+    for i in range(len(partes) - 1):
+        combo = f"{partes[i]} {partes[i+1]}".upper()
+        if combo in EMPRESAS_MAP:
+            return EMPRESAS_MAP[combo]
+
+    # Tenta palavra única
     for parte in partes:
-        if parte.upper() in EMPRESAS:
-            return parte.upper()
+        if parte.upper() in EMPRESAS_MAP:
+            return EMPRESAS_MAP[parte.upper()]
+
     return None
 
 def normalizar_imposto(imposto):
@@ -157,20 +184,21 @@ def parsear_mensagem(mensagem):
     # ── Confirmação de pagamento ──────────────────────────
     if acao in PALAVRAS_CONFIRMACAO:
         if len(partes) < 3:
-            return {"erro": "Formato inválido. Use:\n`paguei EMPRESA IMPOSTO` ou `paguei EMPRESA IMPOSTO VALOR`\n_Ex: paguei BRIGHTLED ICMS 850_"}
+            return {"erro": "Formato inválido. Use:\n`paguei EMPRESA IMPOSTO` ou `paguei EMPRESA IMPOSTO VALOR`\n_Ex: paguei MATRIZ ICMS 850_"}
 
         empresa = identificar_empresa(partes)
         if not empresa:
             return {"erro": f"Empresa não encontrada. Empresas válidas:\n_{', '.join(EMPRESAS)}_"}
 
-        partes_restantes = [p for p in partes[1:] if p.upper() != empresa]
+        # Remove as partes que compõem a empresa (pode ser 1 ou 2 palavras)
+        partes_restantes = _remover_empresa(partes[1:], empresa)
         imposto = normalizar_imposto(partes_restantes[0])
 
         valor_pago = None
         if len(partes_restantes) >= 2:
             valor_pago = limpar_valor(partes_restantes[1])
             if valor_pago is None:
-                return {"erro": f"Valor '{partes_restantes[1]}' inválido. Use números.\n_Ex: paguei BRIGHTLED ICMS 850_"}
+                return {"erro": f"Valor '{partes_restantes[1]}' inválido. Use números.\n_Ex: paguei MATRIZ ICMS 850_"}
 
         return {
             "acao":       "confirmar",
@@ -189,10 +217,10 @@ def parsear_mensagem(mensagem):
     if not empresa:
         return {"erro": f"Empresa não encontrada. Empresas válidas:\n_{', '.join(EMPRESAS)}_"}
 
-    partes_restantes = [p for p in partes[1:] if p.upper() != empresa]
+    partes_restantes = _remover_empresa(partes[1:], empresa)
 
     if len(partes_restantes) < 3:
-        return {"erro": "Faltam informações. Use:\n`adicionar EMPRESA IMPOSTO DD/MM VALOR`\n_Ex: adicionar BRIGHTLED ICMS 30/06 850_"}
+        return {"erro": "Faltam informações. Use:\n`adicionar EMPRESA IMPOSTO DD/MM VALOR`\n_Ex: adicionar MATRIZ ICMS 30/06 850_"}
 
     descricao  = normalizar_imposto(partes_restantes[0])
     vencimento = partes_restantes[1]
@@ -200,7 +228,7 @@ def parsear_mensagem(mensagem):
 
     valor = limpar_valor(valor_str)
     if valor is None:
-        return {"erro": f"Valor '{valor_str}' inválido. Use números.\n_Ex: adicionar BRIGHTLED ICMS 30/06 850_"}
+        return {"erro": f"Valor '{valor_str}' inválido. Use números.\n_Ex: adicionar MATRIZ ICMS 30/06 850_"}
 
     categoria = identificar_categoria(descricao)
 
@@ -213,3 +241,27 @@ def parsear_mensagem(mensagem):
         "categoria":  categoria,
         "status":     "Pendente"
     }
+
+
+def _remover_empresa(partes, empresa_oficial):
+    """Remove da lista as palavras que formam o nome da empresa,
+    seja apelido único (MATRIZ) ou composto (Magna Pr)."""
+    # Descobre quais variações mapeiam para este apelido oficial
+    variacoes = [k for k, v in EMPRESAS_MAP.items() if v == empresa_oficial]
+
+    resultado = []
+    i = 0
+    while i < len(partes):
+        # Tenta match de 2 palavras (ex: "Magna Pr")
+        if i + 1 < len(partes):
+            combo = f"{partes[i]} {partes[i+1]}".upper()
+            if combo in variacoes:
+                i += 2
+                continue
+        # Tenta match de 1 palavra
+        if partes[i].upper() in variacoes:
+            i += 1
+            continue
+        resultado.append(partes[i])
+        i += 1
+    return resultado
