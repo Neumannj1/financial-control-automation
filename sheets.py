@@ -1,10 +1,13 @@
 # ==========================================
 # SHEETS.PY — Conexão com Google Sheets
+# - Proteção contra duplicatas
 # ==========================================
 
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
+import os
+import json
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -13,8 +16,6 @@ SCOPES = [
 
 SHEET_ID = "195QolX1z0dk_DheWrzL6JPmK5Pt37hYBRueSDAlVB-Q"
 
-import os
-import json
 
 def conectar():
     creds_json = os.environ.get("GOOGLE_CREDENTIALS")
@@ -26,14 +27,26 @@ def conectar():
     cliente = gspread.authorize(creds)
     return cliente.open_by_key(SHEET_ID)
 
+
 def salvar_conta(dados):
     planilha = conectar()
     aba = planilha.worksheet("Financeiro")
 
-    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # ── Proteção contra duplicata ──────────────────────────
+    registros = aba.get_all_records()
+    for linha in registros:
+        mesma_empresa = str(linha.get("Empresa", "")).upper() == dados["empresa"].upper()
+        mesmo_imposto = str(linha.get("Imposto", "")).upper() == dados["descricao"].upper()
+        mesmo_venc = str(linha.get("Vencimento", "")).strip() == str(dados["vencimento"]).strip()
+        pendente = linha.get("Status") == "Pendente"
 
-    registros = aba.get_all_values()
-    proximo_id = len(registros)
+        if mesma_empresa and mesmo_imposto and mesmo_venc and pendente:
+            print(f"⚠️ Duplicata ignorada: {dados['empresa']} - {dados['descricao']} - {dados['vencimento']}")
+            return "duplicata"
+
+    # ── Salva a nova conta ─────────────────────────────────
+    agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    proximo_id = len(aba.get_all_values())
 
     nova_linha = [
         proximo_id,
@@ -55,6 +68,7 @@ def salvar_conta(dados):
 
     aba.append_row(nova_linha)
     print(f"✅ Salvo: {dados['empresa']} - {dados['descricao']} - R${dados['valor']}")
+    return "salvo"
 
 
 def confirmar_pagamento(empresa, imposto, valor_pago=None):
@@ -64,8 +78,8 @@ def confirmar_pagamento(empresa, imposto, valor_pago=None):
     registros = aba.get_all_records()
 
     for i, linha in enumerate(registros, start=2):
-        if (linha["Empresa"].upper() == empresa.upper() and
-            linha["Imposto"].upper() == imposto.upper() and
+        if (str(linha["Empresa"]).upper() == empresa.upper() and
+            str(linha["Imposto"]).upper() == imposto.upper() and
             linha["Status"] == "Pendente"):
 
             agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
