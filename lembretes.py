@@ -24,9 +24,26 @@ def get_dias_uteis(n):
 
 def formatar_valor(valor):
     try:
-        return f"R$ {float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"R$ {limpar_valor(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     except:
         return f"R$ {valor}"
+
+def limpar_valor(valor):
+    """Converte para float aceitando '50000', '50000.00', 'R$ 50.000,00' etc."""
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    s = str(valor).strip()
+    if not s:
+        return 0.0
+    # Remove R$, espaços e outros caracteres não numéricos exceto , . -
+    s = s.replace("R$", "").replace(" ", "").strip()
+    # Formato brasileiro: 50.000,00 -> remove pontos de milhar, vírgula vira ponto
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except:
+        return 0.0
 
 # ==========================================
 # MONTAGEM DAS MENSAGENS (retornam texto)
@@ -68,7 +85,7 @@ def montar_relatorio():
             contas_proximas.append(linha)
 
     todas = contas_atrasadas + contas_hoje + contas_proximas
-    total_aberto = sum(float(c.get("Valor", 0)) for c in todas)
+    total_aberto = sum(limpar_valor(c.get("Valor", 0)) for c in todas)
 
     mensagem = f"📊 *Controle Fiscal · {hoje_str}*\n"
     mensagem += "━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -110,8 +127,8 @@ def montar_resumo():
     pagas = [r for r in registros if r.get("Status") == "Pago"]
     pendentes = [r for r in registros if r.get("Status") == "Pendente"]
 
-    total_pago = sum(float(r.get("Valor", 0)) for r in pagas)
-    total_pendente = sum(float(r.get("Valor", 0)) for r in pendentes)
+    total_pago = sum(limpar_valor(r.get("Valor", 0)) for r in pagas)
+    total_pendente = sum(limpar_valor(r.get("Valor", 0)) for r in pendentes)
 
     mensagem = f"📊 *Resumo Geral · {hoje_str}*\n"
     mensagem += "━━━━━━━━━━━━━━━━━━━━\n\n"
