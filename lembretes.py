@@ -1,5 +1,5 @@
 # ==========================================
-# LEMBRETES.PY — Avisos automáticos diários
+# LEMBRETES.PY — Avisos automáticos + geração de relatórios
 # ==========================================
 
 from sheets import conectar
@@ -7,7 +7,7 @@ from whatsapp import enviar_mensagem
 from datetime import datetime, timedelta
 
 NUMEROS_DESTINO = [
-    "5541998495077",   # financeiro (Andreia)
+    "5541998495077",   # financeiro
     "5541998866873",   # Jean (testes)
 ]
 
@@ -28,7 +28,12 @@ def formatar_valor(valor):
     except:
         return f"R$ {valor}"
 
-def verificar_contas():
+# ==========================================
+# MONTAGEM DAS MENSAGENS (retornam texto)
+# ==========================================
+
+def montar_relatorio():
+    """Monta o texto do relatório diário (atrasadas / hoje / próximos 3 dias)."""
     planilha = conectar()
     aba = planilha.worksheet("Financeiro")
     registros = aba.get_all_records()
@@ -62,11 +67,9 @@ def verificar_contas():
         elif vencimento in proximos:
             contas_proximas.append(linha)
 
-    # Calcula total em aberto
     todas = contas_atrasadas + contas_hoje + contas_proximas
     total_aberto = sum(float(c.get("Valor", 0)) for c in todas)
 
-    # Monta mensagem
     mensagem = f"📊 *Controle Fiscal · {hoje_str}*\n"
     mensagem += "━━━━━━━━━━━━━━━━━━━━\n\n"
 
@@ -94,12 +97,11 @@ def verificar_contas():
     mensagem += "━━━━━━━━━━━━━━━━━━━━\n"
     mensagem += f"💰 *Total em aberto: {formatar_valor(total_aberto)}*"
 
-    for numero in NUMEROS_DESTINO:
-        enviar_mensagem(numero, mensagem)
+    return mensagem
 
-    print(f"✅ Lembrete enviado: {datetime.now()}")
 
-def resumo_semanal():
+def montar_resumo():
+    """Monta o texto do resumo geral (pagas / pendentes / total)."""
     planilha = conectar()
     aba = planilha.worksheet("Financeiro")
     registros = aba.get_all_records()
@@ -111,7 +113,7 @@ def resumo_semanal():
     total_pago = sum(float(r.get("Valor", 0)) for r in pagas)
     total_pendente = sum(float(r.get("Valor", 0)) for r in pendentes)
 
-    mensagem = f"📊 *Resumo Semanal · {hoje_str}*\n"
+    mensagem = f"📊 *Resumo Geral · {hoje_str}*\n"
     mensagem += "━━━━━━━━━━━━━━━━━━━━\n\n"
     mensagem += f"✅ *Pagas:* {len(pagas)} contas · {formatar_valor(total_pago)}\n"
     mensagem += f"⏳ *Pendentes:* {len(pendentes)} contas · {formatar_valor(total_pendente)}\n\n"
@@ -124,10 +126,27 @@ def resumo_semanal():
     mensagem += "\n━━━━━━━━━━━━━━━━━━━━\n"
     mensagem += f"💰 *Total em aberto: {formatar_valor(total_pendente)}*"
 
+    return mensagem
+
+
+# ==========================================
+# ENVIO ATIVO (agendador / cron job)
+# ==========================================
+
+def verificar_contas():
+    mensagem = montar_relatorio()
     for numero in NUMEROS_DESTINO:
         enviar_mensagem(numero, mensagem)
+    print(f"✅ Lembrete enviado: {datetime.now()}")
 
+def resumo_semanal():
+    mensagem = montar_resumo()
+    for numero in NUMEROS_DESTINO:
+        enviar_mensagem(numero, mensagem)
     print(f"✅ Resumo semanal enviado: {datetime.now()}")
 
+
 if __name__ == "__main__":
-    verificar_contas()
+    print(montar_relatorio())
+    print()
+    print(montar_resumo())

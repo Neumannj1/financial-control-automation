@@ -1,27 +1,96 @@
 # ==========================================
-# PARSER FINANCEIRO v2 — com empresas
+# PARSER FINANCEIRO v4
+# - Sinônimos de "adicionar"
+# - Lista completa de impostos brasileiros
 # ==========================================
 
-# Apelidos das empresas (virão do Sheets futuramente)
-# Por enquanto fixo aqui para testar
 EMPRESAS = [
     "BRIGHTLED", "FILIAL", "MAGNAPR", "MAGNASP",
     "ROL", "PSP", "TRIPORT", "LIDERLIK",
     "PORTER", "OBV", "SANGA"
 ]
 
-# Tipos de transação
-PALAVRAS_SAIDA        = ["adicionar", "gastei"]
-PALAVRAS_ENTRADA      = ["recebi", "entrou"]
-PALAVRAS_CONFIRMACAO  = ["paguei", "confirmei", "quitei"]
+# ── Ações: sinônimos aceitos ──────────────────────────────
+PALAVRAS_SAIDA = [
+    "adicionar", "adiciona", "add",
+    "incluir", "inclui", "inclua",
+    "inserir", "insere", "insira",
+    "cadastrar", "cadastra", "cadastre",
+    "lancar", "lançar", "lanca", "lança",
+    "registrar", "registra", "registre",
+    "novo", "nova", "criar", "cria",
+    "gastei",
+]
 
-# Categorias
-CATEGORIAS = {
-    "Imposto":      ["icms", "iss", "irpj", "csll", "pis", "cofins"],
-    "Fornecedor":   ["fornecedor", "nota", "nf"],
-    "Alimentação":  ["mercado", "ifood", "restaurante"],
-    "Transporte":   ["uber", "gasolina", "combustivel"],
+PALAVRAS_ENTRADA = ["recebi", "entrou", "recebimento"]
+
+PALAVRAS_CONFIRMACAO = [
+    "paguei", "pagar", "pago",
+    "confirmei", "confirmar", "confirma",
+    "quitei", "quitar", "quita",
+    "baixar", "baixa",
+]
+
+# ── Comandos de consulta (o bot responde na hora) ─────────
+PALAVRAS_RELATORIO = ["relatorio", "relatório", "relatorios", "vencimentos", "vencendo"]
+PALAVRAS_RESUMO    = ["resumo", "resumao", "resumão", "geral", "situacao", "situação"]
+
+# ── Impostos e tributos brasileiros ───────────────────────
+# Federais, estaduais, municipais + novos da Reforma Tributária
+IMPOSTOS_VALIDOS = [
+    # Federais
+    "IRPJ", "IRPF", "IR", "CSLL", "PIS", "PASEP", "COFINS",
+    "IPI", "IOF", "II", "IE", "ITR", "CIDE", "INSS", "CPP", "FGTS",
+    # Estaduais
+    "ICMS", "IPVA", "ITCMD", "DIFAL",
+    # Municipais
+    "ISS", "ISSQN", "IPTU", "ITBI",
+    # Reforma Tributária (transição a partir de 2026)
+    "CBS", "IBS", "IS",
+    # Simples Nacional / MEI
+    "DAS", "SIMPLES", "DASN",
+    # Outros comuns em controle fiscal
+    "FUNRURAL", "SENAI", "SESI", "SESC", "SENAC", "INCRA",
+]
+
+# Sinônimos/variações que mapeiam para um imposto padrão
+ALIAS_IMPOSTOS = {
+    "SIMPLES": "DAS",
+    "SIMPLESNACIONAL": "DAS",
+    "IR": "IRPJ",
+    "PASEP": "PIS",
+    "ISSQN": "ISS",
 }
+
+CATEGORIAS = {
+    "Imposto": [i.lower() for i in IMPOSTOS_VALIDOS],
+    "Fornecedor": ["fornecedor", "nota", "nf"],
+    "Alimentação": ["mercado", "ifood", "restaurante"],
+    "Transporte": ["uber", "gasolina", "combustivel"],
+}
+
+MENSAGEM_AJUDA = (
+    "🤖 *Bot Financeiro*\n"
+    "━━━━━━━━━━━━━━━━━━━━\n\n"
+    "Não entendi sua mensagem. Veja os comandos:\n\n"
+    "➕ *Cadastrar conta:*\n"
+    "`adicionar EMPRESA IMPOSTO DD/MM VALOR`\n"
+    "_Ex: adicionar BRIGHTLED ICMS 30/06 850_\n\n"
+    "✅ *Confirmar pagamento:*\n"
+    "`paguei EMPRESA IMPOSTO`\n"
+    "_Ex: paguei BRIGHTLED ICMS_\n\n"
+    "✅ *Confirmar com valor pago:*\n"
+    "`paguei EMPRESA IMPOSTO VALOR`\n"
+    "_Ex: paguei BRIGHTLED ICMS 850_\n\n"
+    "📊 *Consultar:*\n"
+    "`relatorio` — contas vencendo e atrasadas\n"
+    "`resumo` — visão geral (pagas e pendentes)\n\n"
+    "━━━━━━━━━━━━━━━━━━━━\n"
+    "💡 Você pode usar: adicionar, incluir, inserir,\n"
+    "cadastrar, lançar, registrar...\n\n"
+    "Empresas cadastradas:\n"
+    f"_{', '.join(EMPRESAS)}_"
+)
 
 def identificar_categoria(descricao):
     for categoria, palavras in CATEGORIAS.items():
@@ -35,92 +104,86 @@ def identificar_empresa(partes):
             return parte.upper()
     return None
 
+def normalizar_imposto(imposto):
+    """Padroniza sinônimos de impostos (ex: SIMPLES -> DAS)."""
+    imp = imposto.upper()
+    return ALIAS_IMPOSTOS.get(imp, imp)
+
 def parsear_mensagem(mensagem):
     partes = mensagem.strip().split()
 
+    if not partes:
+        return {"erro": MENSAGEM_AJUDA, "ajuda": True}
+
     acao = partes[0].lower()
 
-    if acao in PALAVRAS_CONFIRMACAO and len(partes) < 3:
-        return {"erro": "Formato inválido. Para confirmar pagamento use: paguei EMPRESA IMPOSTO\nEx: paguei QUANTUM ICMS"}
+    # ── Comandos de consulta ──────────────────────────────
+    if acao in PALAVRAS_RELATORIO:
+        return {"acao": "consulta_relatorio"}
+    if acao in PALAVRAS_RESUMO:
+        return {"acao": "consulta_resumo"}
 
-    if acao not in PALAVRAS_CONFIRMACAO and len(partes) < 4:
-        return {"erro": "Formato inválido. Para cadastrar use: adicionar EMPRESA IMPOSTO DATA VALOR\nEx: adicionar QUANTUM ICMS 30/06 850"}
+    if acao not in PALAVRAS_SAIDA + PALAVRAS_ENTRADA + PALAVRAS_CONFIRMACAO:
+        return {"erro": MENSAGEM_AJUDA, "ajuda": True}
 
-    # Identifica tipo
+    # ── Confirmação de pagamento ──────────────────────────
     if acao in PALAVRAS_CONFIRMACAO:
+        if len(partes) < 3:
+            return {"erro": "Formato inválido. Use:\n`paguei EMPRESA IMPOSTO` ou `paguei EMPRESA IMPOSTO VALOR`\n_Ex: paguei BRIGHTLED ICMS 850_"}
+
         empresa = identificar_empresa(partes)
         if not empresa:
-            return {"erro": f"Empresa não encontrada. Empresas válidas: {', '.join(EMPRESAS)}"}
-        descricao = [p for p in partes[1:] if p.upper() != empresa][0]
+            return {"erro": f"Empresa não encontrada. Empresas válidas:\n_{', '.join(EMPRESAS)}_"}
+
+        partes_restantes = [p for p in partes[1:] if p.upper() != empresa]
+        imposto = normalizar_imposto(partes_restantes[0])
+
+        valor_pago = None
+        if len(partes_restantes) >= 2:
+            try:
+                valor_pago = float(partes_restantes[1].replace(",", "."))
+            except ValueError:
+                return {"erro": f"Valor '{partes_restantes[1]}' inválido. Use números.\n_Ex: paguei BRIGHTLED ICMS 850_"}
+
         return {
-            "acao":    "confirmar",
-            "empresa": empresa,
-            "imposto": descricao.upper()
+            "acao":       "confirmar",
+            "empresa":    empresa,
+            "imposto":    imposto,
+            "valor_pago": valor_pago
         }
 
+    # ── Cadastro de conta ─────────────────────────────────
     if acao in PALAVRAS_SAIDA:
         tipo = "Saida"
-    elif acao in PALAVRAS_ENTRADA:
-        tipo = "Entrada"
     else:
-        return {"erro": f"Ação '{acao}' não reconhecida. Use: adicionar, paguei, recebi"}
+        tipo = "Entrada"
 
-    # Identifica empresa
     empresa = identificar_empresa(partes)
     if not empresa:
-        return {"erro": f"Empresa não encontrada. Empresas válidas: {', '.join(EMPRESAS)}"}
+        return {"erro": f"Empresa não encontrada. Empresas válidas:\n_{', '.join(EMPRESAS)}_"}
 
-    # Remove ação e empresa das partes para pegar o resto
     partes_restantes = [p for p in partes[1:] if p.upper() != empresa]
 
     if len(partes_restantes) < 3:
-        return {"erro": "Faltam informações. Ex: adicionar QUANTUM ICMS 20/06 850"}
+        return {"erro": "Faltam informações. Use:\n`adicionar EMPRESA IMPOSTO DD/MM VALOR`\n_Ex: adicionar BRIGHTLED ICMS 30/06 850_"}
 
-    descricao  = partes_restantes[0]
+    descricao  = normalizar_imposto(partes_restantes[0])
     vencimento = partes_restantes[1]
     valor_str  = partes_restantes[2]
 
-    # Valida valor
     try:
         valor = float(valor_str.replace(",", "."))
     except ValueError:
-        return {"erro": f"Valor '{valor_str}' inválido. Use números. Ex: 850 ou 1200,50"}
+        return {"erro": f"Valor '{valor_str}' inválido. Use números.\n_Ex: adicionar BRIGHTLED ICMS 30/06 850_"}
 
     categoria = identificar_categoria(descricao)
-
-    if acao in PALAVRAS_CONFIRMACAO:
-        return {
-            "acao":    "confirmar",
-            "empresa": empresa,
-            "imposto": descricao.upper()
-        }
 
     return {
         "tipo":       tipo,
         "empresa":    empresa,
-        "descricao":  descricao.upper(),
+        "descricao":  descricao,
         "vencimento": vencimento,
         "valor":      valor,
         "categoria":  categoria,
         "status":     "Pendente"
     }
-
-
-# ==========================================
-# TESTES
-# ==========================================
-
-mensagens_teste = [
-    "adicionar QUANTUM ICMS 20/06 850",
-    "adicionar VELOZ ISS 15/06 320",
-    "adicionar SABOR fornecedor 22/06 1200,50",
-    "adicionar NEXO ICMS 10/06 abc",
-    "adicionar INVALIDA ICMS 10/06 500",
-    "oi tudo bem",
-]
-
-for msg in mensagens_teste:
-    resultado = parsear_mensagem(msg)
-    print(f"Mensagem : '{msg}'")
-    print(f"Resultado: {resultado}")
-    print("---")

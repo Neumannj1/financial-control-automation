@@ -108,6 +108,11 @@ async def webhook(request: Request):
 
         resultado = processar_mensagem(mensagem)
 
+        # Comandos de consulta (relatorio / resumo) — responde o texto pronto
+        if resultado and resultado.get("resposta_texto"):
+            enviar_mensagem(remetente, resultado["resposta_texto"])
+            return {"status": "ok"}
+
         if resultado and "erro" not in resultado:
             if resultado.get("confirmado"):
                 valor_pago = resultado.get("valor_pago")
