@@ -35,10 +35,10 @@ def salvar_conta(dados):
     # ── Proteção contra duplicata ──────────────────────────
     registros = aba.get_all_records()
     for linha in registros:
-        mesma_empresa = str(linha.get("Empresa", "")).upper() == dados["empresa"].upper()
-        mesmo_imposto = str(linha.get("Imposto", "")).upper() == dados["descricao"].upper()
+        mesma_empresa = str(linha.get("Empresa", "")).strip().upper() == str(dados["empresa"]).strip().upper()
+        mesmo_imposto = str(linha.get("Imposto", "")).strip().upper() == str(dados["descricao"]).strip().upper()
         mesmo_venc = str(linha.get("Vencimento", "")).strip() == str(dados["vencimento"]).strip()
-        pendente = linha.get("Status") == "Pendente"
+        pendente = str(linha.get("Status", "")).strip().upper() == "PENDENTE"
 
         if mesma_empresa and mesmo_imposto and mesmo_venc and pendente:
             print(f"⚠️ Duplicata ignorada: {dados['empresa']} - {dados['descricao']} - {dados['vencimento']}")
@@ -78,9 +78,9 @@ def confirmar_pagamento(empresa, imposto, valor_pago=None):
     registros = aba.get_all_records()
 
     for i, linha in enumerate(registros, start=2):
-        if (str(linha["Empresa"]).upper() == empresa.upper() and
-            str(linha["Imposto"]).upper() == imposto.upper() and
-            linha["Status"] == "Pendente"):
+        if (str(linha.get("Empresa", "")).strip().upper() == empresa.upper() and
+            str(linha.get("Imposto", "")).strip().upper() == imposto.upper() and
+            str(linha.get("Status", "")).strip().upper() == "PENDENTE"):
 
             agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             aba.update_cell(i, 10, "Pago")    # Status
@@ -112,4 +112,4 @@ if __name__ == "__main__":
         "categoria":  "Imposto",
         "status":     "Pendente"
     }
-    salvar_conta(dados_teste)
+    print(salvar_conta(dados_teste))
