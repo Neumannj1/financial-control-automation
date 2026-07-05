@@ -1,5 +1,5 @@
 # ==========================================
-# WEBHOOK.PY — Servidor FastAPI
+# WEBHOOK.PY — Servidor FastAPI + Agendador
 # ==========================================
 
 from fastapi import FastAPI, Request
@@ -21,7 +21,7 @@ NUMEROS_AUTORIZADOS = [
 ]
 
 # ==========================================
-# AGENDADOR (fallback — pode não rodar no Render Free)
+# AGENDADOR
 # ==========================================
 
 def rodar_lembrete():
@@ -30,8 +30,8 @@ def rodar_lembrete():
         verificar_contas()
 
 def iniciar_agendador():
-    schedule.every().day.at("11:30").do(rodar_lembrete)
-    schedule.every().monday.at("10:00").do(resumo_semanal)
+    schedule.every().day.at("11:30").do(rodar_lembrete)      # 08:30 Brasilia
+    schedule.every().monday.at("10:00").do(resumo_semanal)   # 07:00 Brasilia
     while True:
         schedule.run_pending()
         time.sleep(30)
@@ -40,39 +40,57 @@ thread = threading.Thread(target=iniciar_agendador, daemon=True)
 thread.start()
 
 # ==========================================
+# FORMATACAO DAS RESPOSTAS
+# ==========================================
+
+def formatar_valor(valor):
+    try:
+        return f"R$ {float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except:
+        return f"R$ {valor}"
+
+def montar_resposta(resultado):
+    """Recebe o dicionario do processar_mensagem e devolve o texto para o WhatsApp."""
+
+    # 1) Erro / duplicata / ajuda  → SEMPRE tem prioridade
+    if "erro" in resultado:
+        return resultado["erro"]
+
+    # 2) Resposta de consulta (relatorio / resumo)
+    if "resposta_texto" in resultado:
+        return resultado["resposta_texto"]
+
+    # 3) Confirmacao de pagamento
+    if resultado.get("confirmado"):
+        texto = (
+            "✅ Pagamento confirmado!\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"🏢 {resultado.get('empresa')} · {resultado.get('imposto')}"
+        )
+        if resultado.get("valor_pago"):
+            texto += f"\n💰 Pago: {formatar_valor(resultado['valor_pago'])}"
+        return texto
+
+    # 4) Cadastro de conta
+    if resultado.get("empresa"):
+        return (
+            "✅ Conta cadastrada!\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"🏢 {resultado.get('empresa')} · {resultado.get('descricao')}\n"
+            f"📅 Venc: {resultado.get('vencimento')}\n"
+            f"💰 {formatar_valor(resultado.get('valor'))}"
+        )
+
+    # 5) Fallback
+    return "✅ Processado."
+
+# ==========================================
 # ROTAS
 # ==========================================
 
 @app.get("/")
 def home():
-    return {"status": "servidor rodando", "hora_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")}
-
-@app.get("/ping")
-def ping():
-    """UptimeRobot bate aqui a cada 5 minutos para manter o servidor vivo."""
-    return {"status": "ok", "hora_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")}
-
-@app.post("/disparar-lembrete")
-def disparar_lembrete():
-    """Render Cron Job chama este endpoint todo dia útil às 11:30 UTC."""
-    try:
-        if datetime.utcnow().weekday() < 5:
-            verificar_contas()
-            return {"status": "lembrete enviado", "hora_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")}
-        return {"status": "fim de semana, ignorado"}
-    except Exception as e:
-        print(f"Erro no lembrete: {e}")
-        return {"status": "erro", "detalhe": str(e)}
-
-@app.post("/disparar-resumo")
-def disparar_resumo():
-    """Render Cron Job chama este endpoint toda segunda às 10:00 UTC."""
-    try:
-        resumo_semanal()
-        return {"status": "resumo enviado", "hora_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")}
-    except Exception as e:
-        print(f"Erro no resumo: {e}")
-        return {"status": "erro", "detalhe": str(e)}
+    return {"status": "servidor rodando"}
 
 @app.post("/webhook")
 async def webhook(request: Request):
@@ -99,39 +117,18 @@ async def webhook(request: Request):
 
         remetente = inner.get("key", {}).get("remoteJid", "")
 
+        # Filtra apenas numeros autorizados
         numero_limpo = remetente.replace("@s.whatsapp.net", "").replace("@lid", "")
         if not any(auth in numero_limpo for auth in NUMEROS_AUTORIZADOS):
             print(f"Ignorado: {remetente}")
             return {"status": "ignorado"}
 
         print(f"Mensagem de {remetente}: {mensagem}")
+        print(f"Mensagem recebida: '{mensagem}'")
 
         resultado = processar_mensagem(mensagem)
-
-        # Comandos de consulta (relatorio / resumo) — responde o texto pronto
-        if resultado and resultado.get("resposta_texto"):
-            enviar_mensagem(remetente, resultado["resposta_texto"])
-            return {"status": "ok"}
-
-        if resultado and "erro" not in resultado:
-            if resultado.get("confirmado"):
-                valor_pago = resultado.get("valor_pago")
-                if valor_pago:
-                    msg = f"✅ Pagamento confirmado!\n*{resultado.get('empresa')} · {resultado.get('imposto')}*\nValor pago: R$ {valor_pago:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                else:
-                    msg = f"✅ Pagamento confirmado!\n*{resultado.get('empresa')} · {resultado.get('imposto')}*"
-                enviar_mensagem(remetente, msg)
-            else:
-                msg = (
-                    f"✅ Conta cadastrada!\n"
-                    f"━━━━━━━━━━━━━━━━━━━━\n"
-                    f"🏢 *{resultado.get('empresa')}* · {resultado.get('descricao')}\n"
-                    f"📅 Venc: {resultado.get('vencimento')}\n"
-                    f"💰 R$ {resultado.get('valor'):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                )
-                enviar_mensagem(remetente, msg)
-        elif resultado and "erro" in resultado:
-            enviar_mensagem(remetente, resultado.get("erro"))
+        resposta = montar_resposta(resultado)
+        enviar_mensagem(remetente, resposta)
 
         return {"status": "ok"}
 
