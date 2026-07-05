@@ -109,11 +109,39 @@ def normalizar_imposto(imposto):
     imp = imposto.upper()
     return ALIAS_IMPOSTOS.get(imp, imp)
 
+def limpar_valor(valor_str):
+    """Converte texto em float aceitando '5000', 'R$5000', 'R$ 5.000,00', '1.200,50' etc.
+    Retorna None se não for um número válido."""
+    s = str(valor_str).strip()
+    if not s:
+        return None
+    s = s.replace("R$", "").replace("r$", "").replace(" ", "").strip()
+    # Formato brasileiro com vírgula decimal: 5.000,00 -> 5000.00
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
 def parsear_mensagem(mensagem):
     partes = mensagem.strip().split()
 
     if not partes:
         return {"erro": MENSAGEM_AJUDA, "ajuda": True}
+
+    # Junta "R$" solto com o número seguinte: ["R$", "5.000,00"] -> ["R$5.000,00"]
+    partes_juntas = []
+    i = 0
+    while i < len(partes):
+        atual = partes[i]
+        if atual.upper() in ("R$", "RS") and i + 1 < len(partes):
+            partes_juntas.append(atual + partes[i + 1])
+            i += 2
+        else:
+            partes_juntas.append(atual)
+            i += 1
+    partes = partes_juntas
 
     acao = partes[0].lower()
 
@@ -140,9 +168,8 @@ def parsear_mensagem(mensagem):
 
         valor_pago = None
         if len(partes_restantes) >= 2:
-            try:
-                valor_pago = float(partes_restantes[1].replace(",", "."))
-            except ValueError:
+            valor_pago = limpar_valor(partes_restantes[1])
+            if valor_pago is None:
                 return {"erro": f"Valor '{partes_restantes[1]}' inválido. Use números.\n_Ex: paguei BRIGHTLED ICMS 850_"}
 
         return {
@@ -171,9 +198,8 @@ def parsear_mensagem(mensagem):
     vencimento = partes_restantes[1]
     valor_str  = partes_restantes[2]
 
-    try:
-        valor = float(valor_str.replace(",", "."))
-    except ValueError:
+    valor = limpar_valor(valor_str)
+    if valor is None:
         return {"erro": f"Valor '{valor_str}' inválido. Use números.\n_Ex: adicionar BRIGHTLED ICMS 30/06 850_"}
 
     categoria = identificar_categoria(descricao)
