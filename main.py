@@ -48,7 +48,11 @@ def processar_mensagem(mensagem):
             return {"erro": f"Conta não encontrada ou já paga: {resultado['empresa']} · {resultado['imposto']}"}
 
     # ── Cadastro de conta ─────────────────────────────────
-    salvar_conta(resultado)
+    status_save = salvar_conta(resultado)
+
+    if status_save == "duplicata":
+        return {"erro": f"⚠️ Esta conta já está cadastrada e pendente:\n{resultado['empresa']} - {resultado['descricao']} - Venc: {resultado['vencimento']}\n\nSe quiser cadastrar mesmo assim, altere algum dado ou confirme o pagamento da anterior."}
+
     return resultado
 
 

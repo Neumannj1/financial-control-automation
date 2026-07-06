@@ -1,6 +1,6 @@
 # ==========================================
 # SHEETS.PY — Conexão com Google Sheets
-# - Proteção contra duplicatas
+# - Proteção contra duplicatas (com debug)
 # ==========================================
 
 import gspread
@@ -34,15 +34,27 @@ def salvar_conta(dados):
 
     # ── Proteção contra duplicata ──────────────────────────
     registros = aba.get_all_records()
-    for linha in registros:
-        mesma_empresa = str(linha.get("Empresa", "")).strip().upper() == str(dados["empresa"]).strip().upper()
-        mesmo_imposto = str(linha.get("Imposto", "")).strip().upper() == str(dados["descricao"]).strip().upper()
-        mesmo_venc = str(linha.get("Vencimento", "")).strip() == str(dados["vencimento"]).strip()
-        pendente = str(linha.get("Status", "")).strip().upper() == "PENDENTE"
 
-        if mesma_empresa and mesmo_imposto and mesmo_venc and pendente:
-            print(f"⚠️ Duplicata ignorada: {dados['empresa']} - {dados['descricao']} - {dados['vencimento']}")
+    emp_novo = str(dados["empresa"]).strip().upper()
+    imp_novo = str(dados["descricao"]).strip().upper()
+    venc_novo = str(dados["vencimento"]).strip()
+
+    print(f"🔍 DEBUG procurando duplicata: EMP='{emp_novo}' IMP='{imp_novo}' VENC='{venc_novo}'")
+
+    for linha in registros:
+        emp_exist = str(linha.get("Empresa", "")).strip().upper()
+        imp_exist = str(linha.get("Imposto", "")).strip().upper()
+        venc_exist = str(linha.get("Vencimento", "")).strip()
+        status_exist = str(linha.get("Status", "")).strip().upper()
+
+        if (emp_exist == emp_novo and
+            imp_exist == imp_novo and
+            venc_exist == venc_novo and
+            status_exist == "PENDENTE"):
+            print(f"⚠️ DUPLICATA encontrada! Linha existente: EMP='{emp_exist}' IMP='{imp_exist}' VENC='{venc_exist}' STATUS='{status_exist}'")
             return "duplicata"
+
+    print("✅ Nenhuma duplicata. Salvando...")
 
     # ── Salva a nova conta ─────────────────────────────────
     agora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -86,7 +98,6 @@ def confirmar_pagamento(empresa, imposto, valor_pago=None):
             aba.update_cell(i, 10, "Pago")    # Status
             aba.update_cell(i, 12, agora)     # Pago_Em
 
-            # Se valor real pago foi informado, salva na coluna Observação (col 15)
             if valor_pago is not None:
                 aba.update_cell(i, 15, f"Valor pago: R$ {valor_pago:.2f}")
 
@@ -97,10 +108,6 @@ def confirmar_pagamento(empresa, imposto, valor_pago=None):
     print(f"❌ Conta não encontrada ou já paga: {empresa} - {imposto}")
     return False
 
-
-# ==========================================
-# TESTE
-# ==========================================
 
 if __name__ == "__main__":
     dados_teste = {
