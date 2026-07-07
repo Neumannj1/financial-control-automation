@@ -172,6 +172,25 @@ def parsear_mensagem(mensagem):
 
     acao = partes[0].lower()
 
+    # Junta impostos compostos com espaço (ex: "ICMS DIFAL" -> "DIFAL")
+    IMPOSTOS_COMPOSTOS = {
+        ("ICMS", "DIFAL"): "DIFAL",
+        ("ICMS", "ST"): "ICMSST",
+        ("SIMPLES", "NACIONAL"): "DAS",
+    }
+    partes_temp = []
+    i = 0
+    while i < len(partes):
+        if i + 1 < len(partes):
+            par = (partes[i].upper(), partes[i+1].upper())
+            if par in IMPOSTOS_COMPOSTOS:
+                partes_temp.append(IMPOSTOS_COMPOSTOS[par])
+                i += 2
+                continue
+        partes_temp.append(partes[i])
+        i += 1
+    partes = partes_temp
+
     # ── Comandos de consulta ──────────────────────────────
     if acao in PALAVRAS_RELATORIO:
         return {"acao": "consulta_relatorio"}
